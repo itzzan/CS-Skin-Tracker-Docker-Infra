@@ -62,12 +62,12 @@ services:
   rmqdashboard:
     image: apacherocketmq/rocketmq-dashboard:latest
     container_name: skin_rmq_console
-    # Dashboard 也加上保险
     platform: linux/amd64
     ports:
-      - "8088:8080"
+      - "8088:8082"
     environment:
-      - JAVA_OPTS=-Drocketmq.namesrv.addr=rmqnamesrv:9876
+      - NAMESRV_ADDR=rmqnamesrv:9876
+      - JAVA_OPTS=-Drocketmq.namesrv.addr=rmqnamesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false -Xmx512m -Xms512m
     depends_on:
       - rmqnamesrv
     networks:
