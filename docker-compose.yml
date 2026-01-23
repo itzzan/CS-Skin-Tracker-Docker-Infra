@@ -1,0 +1,78 @@
+# 删除了 version 字段
+services:
+  # 1. Redis - 缓存与实时计算
+  redis:
+    image: redis:7.0
+    container_name: skin_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    networks:
+      - cs_net
+
+  # 2. Nacos - 注册中心 & 配置中心
+  nacos:
+    image: nacos/nacos-server:v2.2.3
+    container_name: skin_nacos
+    # 【核心修复】强制使用 amd64 架构，Mac 会通过 Rosetta 运行它
+    platform: linux/amd64
+    environment:
+      - MODE=standalone
+      - JVM_XMS=256m
+      - JVM_XMX=256m
+      - PREFER_HOST_MODE=hostname
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    networks:
+      - cs_net
+
+  # 3. RocketMQ NameServer
+  rmqnamesrv:
+    image: apache/rocketmq:5.1.4
+    container_name: skin_rmqnamesrv
+    # RocketMQ 5.x 官方镜像有时也缺少 ARM 构建，建议加上这个保险
+    platform: linux/amd64
+    ports:
+      - "9876:9876"
+    command: sh mqnamesrv
+    networks:
+      - cs_net
+
+  # 4. RocketMQ Broker
+  rmqbroker:
+    image: apache/rocketmq:5.1.4
+    container_name: skin_rmqbroker
+    # 同上，加上保险
+    platform: linux/amd64
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+    volumes:
+      - ./rocketmq/broker.conf:/home/rocketmq/rocketmq-5.1.4/conf/broker.conf
+    command: sh mqbroker -c /home/rocketmq/rocketmq-5.1.4/conf/broker.conf
+    depends_on:
+      - rmqnamesrv
+    networks:
+      - cs_net
+
+  # 5. RocketMQ Dashboard (控制台)
+  rmqdashboard:
+    image: apacherocketmq/rocketmq-dashboard:latest
+    container_name: skin_rmq_console
+    # Dashboard 也加上保险
+    platform: linux/amd64
+    ports:
+      - "8088:8080"
+    environment:
+      - JAVA_OPTS=-Drocketmq.namesrv.addr=rmqnamesrv:9876
+    depends_on:
+      - rmqnamesrv
+    networks:
+      - cs_net
+
+networks:
+  cs_net:
+    driver: bridge
