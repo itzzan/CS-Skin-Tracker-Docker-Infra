@@ -14,12 +14,12 @@ services:
   nacos:
     image: nacos/nacos-server:v2.2.3
     container_name: skin_nacos
-    # 【核心修复】强制使用 amd64 架构，Mac 会通过 Rosetta 运行它
     platform: linux/amd64
     environment:
       - MODE=standalone
-      - JVM_XMS=256m
-      - JVM_XMX=256m
+      - JVM_XMS=2g  # ⬆️ 调大
+      - JVM_XMX=2g  # ⬆️ 调大
+      - JVM_XMN=1g  # 新生代给大点，减少 GC
       - PREFER_HOST_MODE=hostname
     ports:
       - "8848:8848"
@@ -31,10 +31,12 @@ services:
   rmqnamesrv:
     image: apache/rocketmq:5.1.4
     container_name: skin_rmqnamesrv
-    # RocketMQ 5.x 官方镜像有时也缺少 ARM 构建，建议加上这个保险
     platform: linux/amd64
     ports:
       - "9876:9876"
+    # ⬇️ 显式设置 JVM 参数
+    environment:
+      - JAVA_OPT_EXT=-server -Xms2g -Xmx2g -Xmn1g
     command: sh mqnamesrv
     networks:
       - cs_net
@@ -43,13 +45,14 @@ services:
   rmqbroker:
     image: apache/rocketmq:5.1.4
     container_name: skin_rmqbroker
-    # 同上，加上保险
     platform: linux/amd64
     ports:
       - "10911:10911"
       - "10909:10909"
     environment:
       - NAMESRV_ADDR=rmqnamesrv:9876
+      # ⬇️ 暴力解锁：8G堆内存，大新生代，禁用自适应调整
+      - JAVA_OPT_EXT=-server -Xms8g -Xmx8g -Xmn4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200
     volumes:
       - ./rocketmq/broker.conf:/home/rocketmq/rocketmq-5.1.4/conf/broker.conf
     command: sh mqbroker -c /home/rocketmq/rocketmq-5.1.4/conf/broker.conf
@@ -67,7 +70,7 @@ services:
       - "8088:8082"
     environment:
       - NAMESRV_ADDR=rmqnamesrv:9876
-      - JAVA_OPTS=-Drocketmq.namesrv.addr=rmqnamesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false -Xmx512m -Xms512m
+      - JAVA_OPTS=-Drocketmq.namesrv.addr=rmqnamesrv:9876 -Dcom.rocketmq.sendMessageWithVIPChannel=false -Xmx1g -Xms1g
     depends_on:
       - rmqnamesrv
     networks:
