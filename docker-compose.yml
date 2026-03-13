@@ -55,18 +55,14 @@ services:
       - NAMESRV_ADDR=rmqnamesrv:9876
       # ⬇️ 暴力解锁：8G堆内存，大新生代，禁用自适应调整
       - JAVA_OPT_EXT=-server -Xms8g -Xmx8g -Xmn4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - ./rocketmq/broker.conf:/home/rocketmq/rocketmq-5.1.4/conf/broker.conf
     command:
       - sh
       - -c
       - |
-        BROKER_IP=$$(getent hosts host.docker.internal | awk '{print $$1}')
         cp /home/rocketmq/rocketmq-5.1.4/conf/broker.conf /tmp/broker.conf
-        echo "brokerIP1 = $$BROKER_IP" >> /tmp/broker.conf
-        echo ">>> brokerIP1 auto-detected: $$BROKER_IP"
+        printf '\nbrokerIP1 = 127.0.0.1\n' >> /tmp/broker.conf
         exec sh mqbroker -c /tmp/broker.conf
     depends_on:
       - rmqnamesrv
